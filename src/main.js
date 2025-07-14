@@ -48,7 +48,12 @@ function analyzeSalesData(data, options) {
     }
 
     const { calculateRevenue, calculateBonus } = options;
-    /// @TODO: Проверка наличия опций
+    if (!calculateRevenue ||
+        !calculateBonus ||
+        typeof calculateRevenue !== "function" ||
+        typeof calculateBonus !== "function") {
+        throw new Error('Чего-то не хватает');
+    }
 
     // @TODO: Подготовка промежуточных данных для сбора статистики
 
