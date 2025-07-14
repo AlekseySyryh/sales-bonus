@@ -55,15 +55,60 @@ function analyzeSalesData(data, options) {
         throw new Error('Чего-то не хватает');
     }
 
-    // @TODO: Подготовка промежуточных данных для сбора статистики
+    const sellerStats = data.sellers.map(seller => ({
+        id: seller.id,
+        name: `${seller.first_name} ${seller.last_name}`,
+        revenue: 0,
+        profit: 0,
+        sales_count: 0,
+        products_sold: {}
+    }));
 
-    // @TODO: Индексация продавцов и товаров для быстрого доступа
+    const sellerIndex = sellerStats.reduce((result, item) => ({
+        ...result,
+        [item.id]: item
+    }), {});
+    const productIndex = data.products.reduce((result, item) => ({
+        ...result,
+        [item.sku]: item
+    }), {}); // Ключом будет sku, значением — запись из data.products 
 
-    // @TODO: Расчет выручки и прибыли для каждого продавца
+    data.purchase_records.forEach(record => { // Чек 
+        const seller = sellerIndex[record.seller_id]; // Продавец
+        seller.sales_count += 1;
+        seller.revenue += record.total_amount;
 
-    // @TODO: Сортировка продавцов по прибыли
+        // Расчёт прибыли для каждого товара
+        record.items.forEach(item => {
+            const product = productIndex[item.sku]; // Товар
+            const cost = product.purchase_price * item.quantity;
+            const revenue = calculateRevenue(item);
+            const profit = revenue - cost;
+            seller.profit += profit;
 
-    // @TODO: Назначение премий на основе ранжирования
+            if (!seller.products_sold[item.sku]) {
+                seller.products_sold[item.sku] = 0;
+            }
+            seller.products_sold[item.sku] += item.quantity;
+        });
+    });
 
-    // @TODO: Подготовка итоговой коллекции с нужными полями
+    sellerStats.sort((a, b) => b.profit - a.profit);
+
+    sellerStats.forEach((seller, index) => {
+        seller.bonus = calculateBonusByProfit(index, sellerStats.length, seller);
+        let data = Object.entries(seller.products_sold).map(x => ({ sku: x[0], quantity: x[1] }));
+        data.sort((a, b) => b.quantity - a.quantity);
+        seller.top_products = data.slice(0, 10);
+    });
+
+    return sellerStats.map(seller => ({
+        seller_id: seller.id,
+        name: seller.name,
+        revenue: +seller.revenue.toFixed(2),
+        profit: +seller.profit.toFixed(2),
+        sales_count: +seller.sales_count.toFixed(0),
+        top_products: seller.top_products,
+        bonus: +seller.bonus.toFixed(2)
+}));
 }
